@@ -1,0 +1,13 @@
+service: pet-project
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: dev
+  region: us-east-1
+  memorySize: 512
+  timeout: 60
+
+plugins: -serverless-offline
+
+function: user
