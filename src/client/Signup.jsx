@@ -22,7 +22,7 @@ function Signup() {
   };
 
   return (
-    <div>
+    <>
       <h2>Signup</h2>
       <form onSubmit={handleSignup}>
         <input
@@ -39,7 +39,7 @@ function Signup() {
         />
         <button type="submit">Signup</button>
       </form>
-    </div>
+    </>
   );
 }
 
