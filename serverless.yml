@@ -4,10 +4,34 @@ provider:
   name: aws
   runtime: nodejs20.x
   stage: dev
-  region: us-east-1
+  region: ap-northeast-1
   memorySize: 512
   timeout: 60
 
 plugins: -serverless-offline
 
-function: user
+functions:
+  api:
+    handler: server.handler
+    events:
+      - http:
+          path: api/{proxy+}
+          method: ANY
+          cors: true
+
+# Create DynamoDB
+resources:
+  Resources:
+    UsersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: UsersTable
+        AttributeDefinitions:
+          - AttributeName: "email"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "email"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

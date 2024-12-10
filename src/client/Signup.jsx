@@ -10,12 +10,12 @@ function Signup() {
   const handleSignup = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("/api/signup", {
+      await axios.post("http://localhost:5004/api/signup", {
         email,
         password,
       });
       alert("Signup successful! Please login.");
-      navigate("/");
+      navigate("/login");
     } catch (error) {
       alert("Signup failed! Please try again.");
     }
