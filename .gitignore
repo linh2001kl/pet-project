@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 .serverless
 package-lock.json
+.env
