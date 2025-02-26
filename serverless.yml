@@ -12,7 +12,7 @@ plugins: -serverless-offline
 
 functions:
   api:
-    handler: server.handler
+    handler: src/server/serverless.handler
     events:
       - http:
           path: api/{proxy+}
@@ -26,6 +26,20 @@ resources:
       Type: AWS::DynamoDB::Table
       Properties:
         TableName: UsersTable
+        AttributeDefinitions:
+          - AttributeName: "email"
+            AttributeType: "S"
+        KeySchema:
+          - AttributeName: "email"
+            KeyType: "HASH"
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+
+    PostTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: PostTable
         AttributeDefinitions:
           - AttributeName: "email"
             AttributeType: "S"

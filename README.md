@@ -5,5 +5,5 @@ Chạy FE :
 
 Chạy BE :
 
-- cd src/server/server.js
+- cd src/server
 - node server.js
