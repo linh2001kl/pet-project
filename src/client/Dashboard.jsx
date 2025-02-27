@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 function Dashboard() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ function Dashboard() {
   };
 
   const handleFileChange = (event) => {
-    setFile(event.target.files[0]); // Lưu file đã chọn vào state
+    setFile(event.target.files[0]);
   };
 
   const handleUpload = async () => {
@@ -22,19 +23,21 @@ function Dashboard() {
     }
 
     const formData = new FormData();
-    formData.append("file", file); // Gửi file lên server
+    formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:5004/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await axios.post(
+        "http://localhost:5004/api/upload",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
-      const data = await response.json();
-      if (response.ok) {
-        setMessage(`✅ Upload thành công: ${data.fileUrl}`);
+      if (response.status === 200) {
+        setMessage(`✅ Upload thành công: ${response.data.fileUrl}`);
       } else {
-        setMessage(`❌ Upload thất bại: ${data.error}`);
+        setMessage(`❌ Upload thất bại: ${response.data.message}`);
       }
     } catch (error) {
       setMessage(`❌ Lỗi hệ thống: ${error.message}`);

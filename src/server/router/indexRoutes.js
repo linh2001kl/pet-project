@@ -8,5 +8,5 @@ router.post("/signup", authController.signup);
 router.post("/login", authController.login);
 
 //Post router
-router.post("/upload", postController.upload);
+router.post("/upload", postController.uploadMiddleware, postController.upload);
 module.exports = router;
