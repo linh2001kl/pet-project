@@ -1,10 +1,16 @@
 require("dotenv").config();
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
-const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
+const {
+  DynamoDBDocumentClient,
+  PutCommand,
+  ScanCommand,
+} = require("@aws-sdk/lib-dynamodb");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
 
 // Cấu hình AWS S3
@@ -28,8 +34,6 @@ const client = new DynamoDBClient({
 const dynamoDB = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "PostsTable";
 
-// Cấu hình Multer để lưu file tạm thời
-const upload = multer({ dest: "uploads/" });
 // Upload file lên S3 và lưu vào DynamoDB
 exports.upload = async (req, res) => {
   try {
@@ -40,7 +44,6 @@ exports.upload = async (req, res) => {
       "utf8"
     );
 
-    const fileStream = fs.createReadStream(req.file.path);
     const fileKey = `uploads/${Date.now()}-${originalName}`;
 
     // Upload lên S3
@@ -53,9 +56,6 @@ exports.upload = async (req, res) => {
 
     await s3.send(new PutObjectCommand(uploadParams));
 
-    // Xóa file tạm
-    fs.unlinkSync(req.file.path);
-
     // URL của file trên S3
     const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${fileKey}`;
 
@@ -67,6 +67,7 @@ exports.upload = async (req, res) => {
         fileName: originalName,
         fileUrl: fileUrl,
         uploadedAt: new Date().toISOString(),
+        user_email: req.user.email,
       },
     });
 
@@ -82,6 +83,96 @@ exports.upload = async (req, res) => {
 // Xuất middleware Multer để dùng trong router
 exports.uploadMiddleware = upload.single("file");
 
-//Download file từ S3
+//Download file from S3 with fileUrl
+exports.download = async (req, res) => {
+  try {
+    const fileUrl = req.query.fileUrl;
+    console.log("fileUrl :", fileUrl);
+
+    if (!fileUrl) {
+      return res.status(400).json({ message: "fileUrl is required" });
+    }
+
+    const fileKey = fileUrl.split(".com/")[1];
+    console.log("fileKey :", fileKey);
+
+    const downloadParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileKey,
+    };
+    console.log("downloadParams :", downloadParams);
+
+    const fileStream = await s3.send(new GetObjectCommand(downloadParams));
+    console.log("fileStream :", fileStream);
+    const fileName = encodeURIComponent(fileKey.split("/").pop());
+    console.log("fileName :", fileName);
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${fileName}`
+    );
+    res.setHeader("Content-Type", "application/octet-stream");
+    fileStream.Body.pipe(res);
+  } catch (error) {
+    console.error("Lỗi khi download file:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
 
 //Hiển thị ra màn hình file
+exports.findbyPostID = async (req, res) => {
+  try {
+    const postId = req.query.postId;
+    const dbParams = {
+      TableName: TABLE_NAME,
+      Key: {
+        postId: postId,
+      },
+    };
+
+    const result = await dynamoDB.send(dbParams);
+    res.status(200).json(result.Item);
+  } catch (error) {
+    console.error("Lỗi khi hiển thị file:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+exports.getFileUrl = async (req, res) => {
+  try {
+    const fileKey = req.query.fileKey;
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: fileKey,
+    };
+
+    const url = await getSignedUrl(s3, new GetObjectCommand(params), {
+      expiresIn: 60 * 5,
+    }); // URL có hiệu lực 5 phút
+    res.json({ fileUrl: url });
+  } catch (error) {
+    console.error("Lỗi khi tạo pre-signed URL:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+exports.listByUserEmail = async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+
+    const dbParams = {
+      TableName: TABLE_NAME,
+      FilterExpression: "user_email = :user_email",
+      ExpressionAttributeValues: {
+        ":user_email": userEmail,
+      },
+    };
+
+    const command = new ScanCommand(dbParams);
+    const result = await dynamoDB.send(command);
+    res.status(200).json(result.Items);
+  } catch (error) {
+    console.error("Lỗi khi hiển thị danh sách file:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};

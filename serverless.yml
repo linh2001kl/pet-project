@@ -10,14 +10,14 @@ provider:
 
 # plugins: -serverless-offline
 
-# functions:
-#   api:
-#     handler: src/server/serverless.handler
-#     events:
-#       - http:
-#           path: api/{proxy+}
-#           method: ANY
-#           cors: true
+functions:
+  api:
+    handler: src/server/serverless.handler
+    events:
+      - http:
+          path: api/{proxy+}
+          method: ANY
+          cors: true
 
 # Create DynamoDB
 resources:
