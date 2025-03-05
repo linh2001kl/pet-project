@@ -8,7 +8,7 @@ function Dashboard() {
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [fileUrl, setFileUrl] = useState("");
+  const [fileUrls, setFileUrls] = useState({});
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -52,25 +52,29 @@ function Dashboard() {
     }
   };
 
-  const handleFileClick = async (fileKey) => {
-    setLoading(true);
+  const handleGetFileUrl = async (fileUrl) => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get(`/api/getFileUrl`, {
-        params: { fileKey },
+      const response = await axios.get(`http://localhost:5004/api/getFileUrl`, {
+        params: { fileUrl },
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      const data = response.data;
-      if (data.fileUrl) {
-        setFileUrl(data.fileUrl);
-        window.open(data.fileUrl, "_blank"); // Mở file trong tab mới
-      }
+      return response.data.fileUrl;
     } catch (error) {
       console.error("Error fetching file URL", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFileClick = async (fileUrl) => {
+    setLoading(true);
+    const preFileUrl = await handleGetFileUrl(fileUrl);
+    if (preFileUrl) {
+      setFileUrls(preFileUrl);
+      window.open(preFileUrl, "_blank"); // Mở file trong tab mới
     }
   };
 
@@ -120,6 +124,18 @@ function Dashboard() {
     showListFiles();
   }, []);
 
+  useEffect(() => {
+    const fetchFileUrls = async () => {
+      const urls = {};
+      for (const file of files) {
+        const preFileUrl = await handleGetFileUrl(file.fileUrl);
+        urls[file.postId] = preFileUrl;
+      }
+      setFileUrls(urls);
+    };
+
+    fetchFileUrls();
+  }, [files]);
   return (
     <div>
       <h2>Welcome to Dashboard</h2>
@@ -134,7 +150,7 @@ function Dashboard() {
       <ul>
         {files.map((file) => (
           <li key={file.postId}>
-            <button onClick={() => handleFileClick(file.fileKey)}>
+            <button onClick={() => handleFileClick(file.fileUrl)}>
               {loading ? "Đang tải..." : file.fileName}
             </button>
           </li>
@@ -144,14 +160,24 @@ function Dashboard() {
       <h2>Show All Files</h2>
       {files.map((file) => {
         const fileType = file.fileName.split(".").pop().toLowerCase();
-        const isImage = ["png", "jpg", "jpeg", "pdf"].includes(fileType);
+        const isImage = [
+          "jpg",
+          "jpeg",
+          "png",
+          "gif",
+          "bmp",
+          "webp",
+          "tiff",
+          "tif",
+          "svg",
+        ].includes(fileType);
 
         return (
           <div key={file.fileName} style={{ marginBottom: "10px" }}>
             <p>{file.fileName}</p>
             {isImage ? (
               <img
-                src={file.fileName}
+                src={fileUrls[file.postId]}
                 alt="img"
                 style={{ maxWidth: "200px", maxHeight: "200px" }}
               />

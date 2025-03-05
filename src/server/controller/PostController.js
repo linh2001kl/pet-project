@@ -9,9 +9,12 @@ const {
   DynamoDBDocumentClient,
   PutCommand,
   ScanCommand,
+  GetCommand,
 } = require("@aws-sdk/lib-dynamodb");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const { v4: uuidv4 } = require("uuid");
+const multer = require("multer");
+const fs = require("fs");
 
 // Cấu hình AWS S3
 const s3 = new S3Client({
@@ -34,6 +37,9 @@ const client = new DynamoDBClient({
 const dynamoDB = DynamoDBDocumentClient.from(client);
 const TABLE_NAME = "PostsTable";
 
+// Cấu hình Multer để lưu file tạm thời
+const upload = multer({ dest: "uploads/" });
+
 // Upload file lên S3 và lưu vào DynamoDB
 exports.upload = async (req, res) => {
   try {
@@ -44,6 +50,7 @@ exports.upload = async (req, res) => {
       "utf8"
     );
 
+    const fileStream = fs.createReadStream(req.file.path);
     const fileKey = `uploads/${Date.now()}-${originalName}`;
 
     // Upload lên S3
@@ -55,6 +62,9 @@ exports.upload = async (req, res) => {
     };
 
     await s3.send(new PutObjectCommand(uploadParams));
+
+    // Xóa file tạm
+    fs.unlinkSync(req.file.path);
 
     // URL của file trên S3
     const fileUrl = `https://${process.env.S3_BUCKET_NAME}.s3.amazonaws.com/${fileKey}`;
@@ -83,29 +93,24 @@ exports.upload = async (req, res) => {
 // Xuất middleware Multer để dùng trong router
 exports.uploadMiddleware = upload.single("file");
 
-//Download file from S3 with fileUrl
+// Download file from S3 with fileUrl
 exports.download = async (req, res) => {
   try {
     const fileUrl = req.query.fileUrl;
-    console.log("fileUrl :", fileUrl);
 
     if (!fileUrl) {
       return res.status(400).json({ message: "fileUrl is required" });
     }
 
     const fileKey = fileUrl.split(".com/")[1];
-    console.log("fileKey :", fileKey);
 
     const downloadParams = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: fileKey,
     };
-    console.log("downloadParams :", downloadParams);
 
     const fileStream = await s3.send(new GetObjectCommand(downloadParams));
-    console.log("fileStream :", fileStream);
     const fileName = encodeURIComponent(fileKey.split("/").pop());
-    console.log("fileName :", fileName);
 
     res.setHeader(
       "Content-Disposition",
@@ -119,7 +124,7 @@ exports.download = async (req, res) => {
   }
 };
 
-//Hiển thị ra màn hình file
+// Hiển thị ra màn hình file
 exports.findbyPostID = async (req, res) => {
   try {
     const postId = req.query.postId;
@@ -130,7 +135,7 @@ exports.findbyPostID = async (req, res) => {
       },
     };
 
-    const result = await dynamoDB.send(dbParams);
+    const result = await dynamoDB.send(new GetCommand(dbParams));
     res.status(200).json(result.Item);
   } catch (error) {
     console.error("Lỗi khi hiển thị file:", error);
@@ -138,9 +143,14 @@ exports.findbyPostID = async (req, res) => {
   }
 };
 
+// Tạo pre-signed URL để tải file từ S3
 exports.getFileUrl = async (req, res) => {
   try {
-    const fileKey = req.query.fileKey;
+    const fileKey = req.query.fileUrl.split(".com/")[1];
+
+    if (!fileKey) {
+      return res.status(400).json({ message: "fileKey is required" });
+    }
     const params = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: fileKey,
@@ -156,6 +166,7 @@ exports.getFileUrl = async (req, res) => {
   }
 };
 
+// Lấy danh sách file theo email người dùng
 exports.listByUserEmail = async (req, res) => {
   try {
     const userEmail = req.user.email;
