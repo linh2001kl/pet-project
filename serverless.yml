@@ -6,17 +6,102 @@ provider:
   stage: dev
   region: ap-northeast-1
   memorySize: 1024
-  timeout: 60
+  timeout: 20
 
-# plugins: -serverless-offline
+package:
+  excludeDevDependencies: true
+  exclude:
+    - .git/**
+    - .serverless/**
+    - tests/**
+    - docs/**
+    - .venv/**
+    - .vscode/**
+    - node_modules/**
+
+layers:
+  dependencies:
+    path: layer
+    compatibleRuntimes:
+      - nodejs20.x
 
 functions:
-  api:
-    handler: src/server/serverless.handler
+  signup:
+    handler: src/server/controller/authController.signup
+    layers:
+      - { Ref: DependenciesLambdaLayer }
     events:
       - http:
-          path: api/{proxy+}
-          method: ANY
+          path: signup
+          method: post
+          cors: true
+
+  login:
+    handler: src/server/controller/authController.login
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: login
+          method: post
+          cors: true
+
+  # dashboard:
+  #   handler: src/server/controller/authController.login
+  #   events:
+  #     - http:
+  #         path: login
+  #         method: post
+  #         cors: true
+
+  upload:
+    handler: src/server/controller/PostController.upload
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: upload
+          method: post
+          cors: true
+
+  listByUserEmail:
+    handler: src/server/controller/PostController.listByUserEmail
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: listByUserEmail
+          method: get
+          cors: true
+
+  download:
+    handler: src/server/controller/PostController.download
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: download
+          method: get
+          cors: true
+
+  findbyPostID:
+    handler: src/server/controller/PostController.findbyPostID
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: findbyPostID
+          method: get
+          cors: true
+
+  getFileUrl:
+    handler: src/server/controller/PostController.getFileUrl
+    layers:
+      - { Ref: DependenciesLambdaLayer }
+    events:
+      - http:
+          path: getFileUrl
+          method: get
           cors: true
 
 # Create DynamoDB
